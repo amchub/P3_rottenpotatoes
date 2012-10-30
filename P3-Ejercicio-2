@@ -1,0 +1,165 @@
+Antonio Moreno Carretero
+
+Pregunta 1
+==========
+En la vista index.html.haml, la forma de seleccionar el criterio de ordenación que se desea mostrar está implementado en las siguientes dos líneas:
+
+      %th{:class => @title_header}= link_to 'Movie Title', movies_path(:sort => 'title', :ratings => @selected_ratings), :id => 'title_header'
+
+      %th{:class => @date_header}= link_to 'Release Date', movies_path(:sort => 'release_date', :ratings => @selected_ratings), :id => 'release_date_header'
+
+Con ellas se pretende mostrar el título de la columna a las que representan, de forma que se puedan clickar para ordenarlas según lo que indican.
+
+Como vemos, se ha realizado mediante dos link_to, ambos dirigidos a la ruta movies_path (índice de películas) con varios parámetros. Entre ellos, el que nos importa en este caso el el parámetro :sort, que en el caso de pinchemos en 'Movie Title' tendrá valor 'title' y en caso de que pinchemos en 'Release Date' adoptará el valor 'release_date'.
+
+Destacamos también que ambos link_to han sido identificados por una clase, @title_header en el caso de la ordenación por título y @date_header en el caso de la ordenación por rating.
+
+Para averiguar el sentido del parámetro sort debemos de diriginos al controlador movies_controller.rb. En él, dentro del método index aparece el siguiente código:
+
+sort = params[:sort] 
+    case sort
+    when 'title'
+      ordering,@title_header = {:order => :title}, 'hilite'
+    when 'release_date'
+      ordering,@date_header = {:order => :release_date}, 'hilite'
+    end
+
+En primer lugar extraemos el valor del parámetro :sort a la variable sort para después evaluarla en una estructura case. 
+
+Dependiendo del valor de la variale sort se realizará una accion u otra, ambas similares, pero con el factor común de indentificarlas con la etiqueta 'hilite'. Dado que es un case, hilite identificará o a una accion, o a otra (dos criterios diferentes de ordenación).
+
+Por último, nos tenemos que centrar en la hoja de estilo de la aplicación application.css. Aquí es donde damos color realmente al elemento que hemos seleccionado. En las siguiente líneas de código es donde asignamos el color al título de columna seleccionada:
+
+table#movies th.hilite {
+  background-color: yellow;
+}
+
+Identificamos el título de columna de la siguiente manera: El elemento 'th' de la clase 'hilite' dentro del elemento 'table' cuyo 'ID' es movies. Para asignar el color amarillo de fondo a estos elementos basta con la línea:
+
+background-color: yellow;
+
+
+Pregunta 2
+==========
+Como ya hemos introducido en la pregunta anterior, el controlador recibe el criterio de ordenación de la siguiente manera. En el fichero movies_controller.rb, en el método index aparece el siguiente código.
+
+    sort = params[:sort] 
+    case sort
+    when 'title'
+      ordering,@title_header = {:order => :title}, 'hilite'
+    when 'release_date'
+      ordering,@date_header = {:order => :release_date}, 'hilite'
+    end
+
+El parámetro :sort que hemos recibido lo introducimos en la variable sort y la evaluamos con un case. Tenemos dos posibles criterios de ordenación, por título (when 'title') o por fecha de publicación (when 'release_date'). En el primer caso, la variable ordering hará referencia a @title_header = {:order => :title}, mientras que en el segundo, será @date_header = {:order => :release_date}. Además, en ambas acciones se etiquetarán con el string 'hilite' (que como hemos visto en el apartado anterior, servirá para dar sobresaltar el criterio de ordenación elegido). 
+
+La variable ordering la vamos a utilizar más adelante, al final del método index, en la línea:
+ 
+@movies = Movie.find_all_by_rating(@selected_ratings.keys, ordering)
+
+Esta línea la utilizamos para obtener las péliculas a mostrar en el índice (estarán contendias en @movies). Movie.find_all_by_rating devuelve las películas con unos determinados ratings y además, ordenadas según el criterio de ordenación que indica ordering, que será, o bien, @title_header = {:order => :title} para el caso de ordenación por tílulo, o bien, @date_header = {:order => :release_date} para el caso de ordenación por fecha de lanzamiento.
+
+Para responder a la pregunta de qué código hace que se envíe así el criterio de ordenación debemos de analizar el fichero index.html.haml en las siguientes líneas: 
+
+%th{:class => @title_header}= link_to 'Movie Title', movies_path(:sort => 'title', :ratings => @selected_ratings), :id => 'title_header'
+
+%th{:class => @date_header}= link_to 'Release Date', movies_path(:sort => 'release_date', :ratings => @selected_ratings), :id => 'release_date_header'
+
+Aquí estamos indicando el título de la columna 'Movie Title' con un enlace (link_to) al índice de películas (movies_path) con una serie de atributos, entre ellos, el que nos interesa para este caso, :sort => 'title'. Que será evaluado por el controlador como ya hemos visto. Para el caso de la columna cuyo título es 'Release Date', será igual pero con el atributo :sort => 'release_date'.
+
+En caso de que lo último que hagamos sea modificar el criterio de filtrado, el criterio de ordenación se seguirá enviando en la variable :sort gracias a las siguientes dos líneas dentro del form_tag donde se definen las checkbox del critero de filtrado:
+
+  = hidden_field_tag :sort, "title" if @title_header
+  = hidden_field_tag :sort, "release_date" if @date_header
+
+Los criterios de ordenación viajan en el mensaje HTTP dentro de la URL, es decir, incluidos en la cabecera, además, podemos decir que esta forma de realizar las solicitudes es RESTful ya que toda la información necesaria para mostrar una determinada página está contenida en la URL. Por ejemplo:
+
+http://localhost:3000/movies?ratings[G]=G&ratings[NC-17]=NC-17&ratings[PG]=PG&ratings[PG-13]=PG-13&ratings[R]=R&sort=title
+
+
+Pregunta 3
+==========
+El criterio de filtrado que se recibe en el controlador lo podemos analizar en movies_controller.rb, en el metodo index, al igual que con el caso del criterio de ordenación. Este criterio está definido en las siguientes líneas de código.
+
+    @all_ratings = Movie.all_ratings
+    @selected_ratings = params[:ratings] || {}
+    
+    if @selected_ratings == {}
+      @selected_ratings = Hash[@all_ratings.map {|rating| [rating, rating]}]
+    end
+
+En primer lugar almacenamos en @all_ratings todos los posibles valores de rating, y en @selected_ratings los valores de reting que el usuario a seleccionado en la aplicación. Después de esto, tenemos una estructura if, para considerar el caso en el que el usuario no haya seleccionado ningun rating (es decir, @selected_ratings estará vacío), en ese caso, hacemos que @selected_ratings tenga todos los posibles valores(G, PG, R, PG-13 y NC-17). 
+
+
+Ahora nos queda devolver las películas a la aplicación para que sean mostradas en el índice, como ya vimos en el caso de los criterio de ordenación, esto se consigue con la siguiente línea:
+
+@movies = Movie.find_all_by_rating(@selected_ratings.keys, ordering)
+
+Para este caso, prestamos atención en el método find_all_by_rating y en su atributo @selected_rating, esto devolverá del modelo únicamente las películas cuyos rating estén contenidos en @selected_ratings.keys. Por su parte, como ya explicamos, con ordering indicamos el criterio de ordenación.
+
+Para responder a la pregunta de qué código hace que se envíe así el criterio de filtrado debemos de analizar el fichero index.html.haml en las siguientes líneas: 
+
+= form_tag movies_path, :method => :get, :id => 'ratings_form' do
+  = hidden_field_tag :sort, "title" if @title_header
+  = hidden_field_tag :sort, "release_date" if @date_header
+  Include: 
+  - @all_ratings.each do |rating|
+    = rating
+    = check_box_tag "ratings[#{rating}]", 1, @selected_ratings.include?(rating), :id => "ratings_#{rating}"
+  = submit_tag 'Refresh', :id => 'ratings_submit'
+
+Como vemos, el critero de filtrado se envía mediante un formulario con método HTTP get a movies_path, lo primero que nos encontramos son dos hidden_field_tag (campos oculto) para poder seguir enviando el criterio de ordenación. 
+A continuación imprimimos la palabra 'Include'. Lo siguiente con lo que nos encontramos es con un iterador (each). Para cada valor de rating (G, PG, R, PG-13 y NC-17) imprimimos su nombre e incluimos una check_box (casilla), esta casilla se mostrará marcada (con un tick, por ejemplo), si el rating que estamos iterando en esa ocasión se encuentra dentro de @selected_ratings. Por último, para enviar el formulario se tiene un submit_tag (aparecerá un botón en la aplicación) con la palabra 'Refresh'. 
+
+Al igual que con los criterios de ordenación, el criterio de filtrado viaja en el mensaje HTTP dentro de la URL, es decir, incluido en la cabecera, además, podemos decir que esta forma de realizar las solicitudes es RESTful ya que toda la información necesaria para mostrar una determinada página está contenida en la URL. Por ejemplo:
+
+http://localhost:3000/movies?ratings[G]=G&ratings[NC-17]=NC-17&ratings[PG]=PG&ratings[PG-13]=PG-13&ratings[R]=R&sort=title
+
+
+Pregunta 4
+==========
+Como ya hemos ido viendo en las cuestiones anteriores, la consulta a la base de datos la hacemos desde el método index del controlador movies_controller.rb en la siguiente línea que aparece al final del método:
+
+@movies = Movie.find_all_by_rating(@selected_ratings.keys, ordering)
+
+Aquí indicamos que busque todas las películas según su rating parámetro(Movie.find_all_by_rating), pasándoles los valores de rating determinados(@selected_ratings.keys), y además, que las ordene según un determinado criterio (ordering), que puede ser @title_header = {:order => :title} para ordenar por título de película, o @date_header = {:order => :release_date} si se quiere ordenar por fecha de lanzamiento de la película.
+
+
+Pregunta 5
+==========
+La respuesta a esta pregunta ya la anticipamos en la pregunta 3. Dentro del método index del controlador movies_controller.rb tenemos las siguientes líneas:
+
+    if @selected_ratings == {}
+      @selected_ratings = Hash[@all_ratings.map {|rating| [rating, rating]}]
+    end
+
+@selected_ratings sera igual a {}, es decir, un hash vacío, por ejemplo cuando se corre la aplicación por primera vez. En ese caso, hacemos que @selected_ratings contenga todos los posibles valores (G, PG, R, PG-13 y NC-17) adquiriéndolos de @all_ratings. De esta forma se mostrarán todas las películas y todos las casillas que representan todos los ratings marcadas. 
+Destacar que @selected_ratings es un hash.
+
+Pregunta 6
+==========
+Para conservar el criterio de ordenación después de haber seleccionado algunas checkboxes recurrimos a las siguientes líneas de código de la vista index.html.haml situadas dentro del formulario que se envía cuando seleccionamos las checkboxes y pinchamos en 'Refresh':
+
+  = hidden_field_tag :sort, "title" if @title_header
+  = hidden_field_tag :sort, "release_date" if @date_header
+
+hidden_field_tag crea un campo de formulario oculto (utilizado principalmente para que la comunicación continúe siendo sin estado). 
+
+Por tanto, cuando el criterio de ordenación por título ha sido seleccionado previamente, @title_header está 'activo' y por tanto enviamos :sort => 'title' como atributo en la ruta movies_path (ruta a la que se envía el formulario), al igual que hacíamos cuando pinchábamos el título de la columna según la cual queríamos ordenar. Para el caso de ordenación segun la fecha de estreno, @date_header está 'activo' y enviamos :sort => 'release_date' de forma análoga a cuando lo seleccionamos de forma explicita.
+
+Después, en el controlador (movies_controller.rb) se volverán a procesar los atributos como lo explicado en las cuestiones 2 y 3.
+
+
+Pregunta 7
+==========
+Para conservar el criterio de filtrado después de haber seleccionado un criterio de ordenación analizamos las siguientes líneas de código de la vista index.html.haml:
+
+  %th{:class => @title_header}= link_to 'Movie Title', movies_path(:sort => 'title', :ratings => @selected_ratings), :id => 'title_header'
+  %th{:class => @date_header}= link_to 'Release Date', movies_path(:sort => 'release_date', :ratings => @selected_ratings), :id => 'release_date_header'
+
+Comprobamos que en ambas se está enviando como atributo de la ruta movies_path, :ratings => @selected_ratings, de esta forma se mantendrá el criterio de filtrado de checkboxes seleccionado anteriormete. 
+
+Después, en el controlador (movies_controller.rb) se volverán a procesar los atributos como lo explicado en las cuestiones 2 y 3.
+
+
+
